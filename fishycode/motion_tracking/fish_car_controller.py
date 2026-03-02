@@ -4,6 +4,7 @@ import serial
 import time
 import math
 from hokuyolx import HokuyoLX
+print(">>> FILE LOADED fish_car_controller.py <<<", flush=True)
 
 # ============================================
 # CONFIGURATION
@@ -34,7 +35,7 @@ BOUNDING_BOX_WARNING_RADIUS = 4.0  # meters - start slowing down
 ENABLE_BOUNDING_BOX = True
 
 # Movement Smoothing
-SMOOTHING_FACTOR = 0.3  # 0.0 = no smoothing, 1.0 = maximum smoothing
+SMOOTHING_FACTOR = 0.05  # 0.0 = no smoothing, 1.0 = maximum smoothing
 MIN_FISH_DETECTION_AREA = 100  # minimum contour area to consider valid
 
 # Loop Timing
@@ -146,6 +147,8 @@ def initialize_systems():
         camera.release()
         arduino.close()
         return None, None, None
+        # print("lidar disabled - continuing without it")
+       # lidar = None
     
     print("\n=== System Ready ===")
     print(f"Bounding Box: {'ENABLED' if ENABLE_BOUNDING_BOX else 'DISABLED'}")
@@ -263,6 +266,8 @@ def generate_movement_command(state):
     
     # Stop if at boundary or obstacle ahead
     if at_boundary or obstacle_ahead:
+        fish_x = FRAME_WIDTH // 2
+        fish_y = FRAME_HEIGHT // 2
         speed_factor = 0.0
     
     obstacle_flag = 1 if obstacle_ahead else 0
@@ -302,11 +307,16 @@ def main():
             frame, mask, fish_detected = detect_fish(frame, state)
             
             # Check LIDAR for obstacles
-            state.lidar_obstacle_detected = check_lidar_obstacle(lidar)
+            # state.lidar_obstacle_detected = check_lidar_obstacle(lidar)
+            if lidar is not None:
+               state.lidar_obstacle_detected = check_lidar_obstacle(lidar)
+            else:
+               state.lidar_obstacle_detected = False
             
             # Generate and send command
             command, col, row = generate_movement_command(state)
-            
+            print("SENDING TO ARDUINO: ", command.strip())
+
             try:
                 arduino.write(command.encode())
                 state.last_command_time = time.time()
