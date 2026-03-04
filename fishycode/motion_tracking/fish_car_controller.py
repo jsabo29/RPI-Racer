@@ -28,6 +28,10 @@ LIDAR_IP = "192.168.0.10"
 LIDAR_PORT = 10940
 LIDAR_STOP_DISTANCE = 0.7  # meters
 LIDAR_FRONT_ANGLE_DEG = 30  # +/- degrees around center
+LIDAR_CLEAR_DISTANCE = 0.85 #must be greater than the stop distance to be clear 
+LIDAR_HIT_COUNT_TO_TRIGGER = 3 # consectuvie hits to trigger obstacle 
+LIDAR_CLEAR_COUNT_TO_CLEAR = 1 # consecutive clears to clear obstacle 
+
 
 # Virtual Bounding Box Setup
 BOUNDING_BOX_RADIUS = 5.0  # meters - maximum distance from starting position
@@ -58,6 +62,8 @@ class CarState:
         self.smoothed_fish_y = FRAME_HEIGHT // 2
         self.lidar_obstacle_detected = False
         self.boundary_violation = False
+        self.lidar_hit_count = 0
+        self.lidar_clear_count = 0
         
     def update_position(self, speed, steering_angle, dt):
         """Estimate position based on movement (dead reckoning)"""
@@ -194,6 +200,67 @@ def check_lidar_obstacle(lidar):
     except Exception as e:
         print(f"LIDAR error: {e}")
         return False
+def get_lidar_front_closest_meters(lidar):
+    """Return closest distance in meters in the front sector, or None if invalid."""
+    try:
+        ts, scan = lidar.get_dist()
+        if scan is None or len(scan) == 0:
+            return None
+
+        n = len(scan)
+        deg_per_beam = 270.0 / n
+        beams_each_side = int(LIDAR_FRONT_ANGLE_DEG / deg_per_beam)
+
+        mid = n // 2
+        start = max(0, mid - beams_each_side)
+        end = min(n, mid + beams_each_side)
+
+        front_beams = scan[start:end]
+
+        valid = [d / 1000.0 for d in front_beams if 0 < d < 30000]  # mm -> m
+        if not valid:
+            return None
+
+        return min(valid)
+
+    except Exception as e:
+        print(f"LIDAR error: {e}")
+        return None
+
+
+def update_lidar_obstacle_state(state, lidar):
+    """
+    Debounce + hysteresis:
+      - Trigger obstacle if closest < STOP for N consecutive reads
+      - Clear obstacle only if closest > CLEAR for M consecutive reads
+    """
+    if lidar is None:
+        state.lidar_obstacle_detected = False
+        state.lidar_hit_count = 0
+        state.lidar_clear_count = 0
+        return
+
+    closest = get_lidar_front_closest_meters(lidar)
+    if closest is None:
+        # If scan fails, don't instantly flip state; just don't count it.
+        return
+
+    if closest < LIDAR_STOP_DISTANCE:
+        state.lidar_hit_count += 1
+        state.lidar_clear_count = 0
+    elif closest > LIDAR_CLEAR_DISTANCE:
+        state.lidar_clear_count += 1
+        state.lidar_hit_count = 0
+    else:
+        # between STOP and CLEAR: don't change counts much
+        state.lidar_hit_count = 0
+        state.lidar_clear_count = 0
+
+    if state.lidar_hit_count >= LIDAR_HIT_COUNT_TO_TRIGGER:
+        state.lidar_obstacle_detected = True
+
+    if state.lidar_clear_count >= LIDAR_CLEAR_COUNT_TO_CLEAR:
+        state.lidar_obstacle_detected = False
 
 # ============================================
 # FISH TRACKING
@@ -302,16 +369,22 @@ def main():
             if not ret:
                 print("Error: Failed to grab frame")
                 break
+    
+
+            #force processing size 
+            frame = cv2.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT))
             
             # Detect fish
             frame, mask, fish_detected = detect_fish(frame, state)
-            
+         
             # Check LIDAR for obstacles
             # state.lidar_obstacle_detected = check_lidar_obstacle(lidar)
-            if lidar is not None:
-               state.lidar_obstacle_detected = check_lidar_obstacle(lidar)
-            else:
-               state.lidar_obstacle_detected = False
+           # if lidar is not None:
+             #  state.lidar_obstacle_detected = check_lidar_obstacle(lidar)
+          #  else:
+           #    state.lidar_obstacle_detected = False
+            update_lidar_obstacle_state(state, lidar)
+            
             
             # Generate and send command
             command, col, row = generate_movement_command(state)
