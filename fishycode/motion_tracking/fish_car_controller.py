@@ -20,8 +20,10 @@ FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
 
 # HSV Color Bounds for Fish Detection [0, 170, 25]
-LOWER_HSV = np.array([23, 98, 162])
-UPPER_HSV = np.array([179, 255, 255])
+#LOWER_HSV = np.array([23, 98, 162])
+#UPPER_HSV = np.array([179, 255, 255])
+LOWER_HSV = np.array([5, 40, 40])
+UPPER_HSV = np.array([35, 255, 255])
 
 # LIDAR Setup
 LIDAR_IP = "192.168.0.10"
