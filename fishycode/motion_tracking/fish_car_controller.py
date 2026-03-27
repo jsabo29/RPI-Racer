@@ -12,7 +12,7 @@ print(">>> FILE LOADED fish_car_controller.py <<<", flush=True)
 
 # Serial Setup
 SERIAL_PORT = '/dev/ttyACM0'
-BAUD_RATE = 19200
+BAUD_RATE = 19200,
 
 # Camera Setup
 CAMERA_INDEX = 0
