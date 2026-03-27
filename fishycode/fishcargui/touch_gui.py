@@ -51,11 +51,11 @@ title_label.pack(pady=30)
 status_label = tk.Label(root, text="Status: STOPPED", font=("Arial", 22), bg="black", fg="red")
 status_label.pack(pady=20)
 
-start_button = tk.Button(root, text="START", font=("Arial", 26, "bold"), bg="green", fg="white", width=12, height=2, command=start_script)
-start_button.pack(pady=20)
+start_button = tk.Button(root, text="START", font=("Arial", 40, "bold"), bg="green", fg="white", width=18, height=5, command=start_script)
+start_button.pack(pady=30)
 
-stop_button = tk.Button(root, text="STOP", font=("Arial", 26, "bold"), bg="red", fg="white", width=12, height=2, command=stop_script)
-stop_button.pack(pady=20)
+stop_button = tk.Button(root, text="STOP", font=("Arial", 40, "bold"), bg="red", fg="white", width=18, height=5, command=stop_script)
+stop_button.pack(pady=30)
 
 exit_button = tk.Button(root, text="EXIT", font=("Arial", 18, "bold"), bg="gray", fg="white", width=10, height=1, command=on_close)
 exit_button.pack(pady=20)
