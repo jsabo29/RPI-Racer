@@ -70,6 +70,15 @@ unsigned long reverseCooldownStartMs = 0;
 // -------------------------
 // Helpers
 // -------------------------
+// --- Rear IR Sensors ---
+const int IR_LEFT_PIN        = A1;
+const int IR_RIGHT_PIN       = A2;
+const float IR_STOP_CM       = 30.0;
+const int IR_NUM_SAMPLES     = 7;
+const int IR_CONFIRM_COUNT   = 3;
+int irLeftCloseCount         = 0;
+int irRightCloseCount        = 0;   
+
 void setDrivePower(int power) {
   power = constrain(power, -100, 100);
 
@@ -208,6 +217,11 @@ updateReverseCooldown();
       return; 
     }
     
+  if (!rearIsClear()) {
+        setDrivePower(0);
+        steerByRow(row);
+        break;
+      }
       setDrivePower(-scaled);
       steerByRow(row);
       break;
@@ -240,11 +254,14 @@ void updateAvoidance() {
     return;
   }
 
-  if (mode == AVOID_REVERSE_TURN) {
-    // reverse + steer left/right
-    setDrivePower(AVOID_REVERSE_POWER);
-    steering_servo.write(avoidTurnRight ? AVOID_STEER_RIGHT : AVOID_STEER_LEFT);
-
+    if (mode == AVOID_REVERSE_TURN) {
+    if (!rearIsClear()) {
+      setDrivePower(0);
+      steering_servo.write(90);
+    } else {
+      setDrivePower(AVOID_REVERSE_POWER);
+      steering_servo.write(avoidTurnRight ? AVOID_STEER_RIGHT : AVOID_STEER_LEFT);
+    }
     if (elapsed >= AVOID_REVERSE_TURN_MS) {
       enterMode(AVOID_NEUTRAL2);
     }
@@ -262,7 +279,45 @@ void updateAvoidance() {
     return;
   }
 }
+float irRawToCM(int raw) {
+  if (raw <= 0) return -1.0;
+  float volts = raw * (5.0 / 1023.0);
+  if (volts < 0.55 || volts > 3.1) return -1.0;
+  return 29.988 * pow(volts, -1.173);
+}
 
+float irReadCM(int pin) {
+  int samples[IR_NUM_SAMPLES];
+  for (int i = 0; i < IR_NUM_SAMPLES; i++) {
+    samples[i] = analogRead(pin);
+    delay(2);
+  }
+  for (int i = 0; i < IR_NUM_SAMPLES - 1; i++)
+    for (int j = 0; j < IR_NUM_SAMPLES - 1 - i; j++)
+      if (samples[j] > samples[j+1]) {
+        int t = samples[j]; samples[j] = samples[j+1]; samples[j+1] = t;
+      }
+
+  // If spread between min and max is too large, readings are unstable — treat as no object
+  int spread = samples[IR_NUM_SAMPLES - 1] - samples[0];
+  if (spread > 40) return -1.0;
+
+  return irRawToCM(samples[IR_NUM_SAMPLES / 2]);
+}
+
+// Returns true if rear is CLEAR, false if something is too close
+bool rearIsClear() {
+  float l = irReadCM(IR_LEFT_PIN);
+  float r = irReadCM(IR_RIGHT_PIN);
+
+  if (l > 0 && l < IR_STOP_CM) irLeftCloseCount++;
+  else irLeftCloseCount = 0;
+
+  if (r > 0 && r < IR_STOP_CM) irRightCloseCount++;
+  else irRightCloseCount = 0;
+
+  return !(irLeftCloseCount >= IR_CONFIRM_COUNT || irRightCloseCount >= IR_CONFIRM_COUNT);
+}
 void setup() {
   steering_servo.attach(STEERING_PIN);
   drive_motor.attach(MOTOR_PIN);
@@ -322,4 +377,5 @@ void loop() {
   if(now - lastControlMs < CONTROL_PERIOD_MS) return; 
   lastControlMs = now; 
   handleFollow(cmd_x, cmd_y, cmd_speed_factor);
+//  Serial.println(rearIsClear() ? "REAR CLEAR" : "REAR BLOCKED"); 
   }
