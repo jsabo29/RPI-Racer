@@ -28,9 +28,9 @@ UPPER_HSV = np.array([35, 255, 255])
 # LIDAR Setup
 LIDAR_IP = "192.168.0.10"
 LIDAR_PORT = 10940
-LIDAR_STOP_DISTANCE = 0.7  # meters
+LIDAR_STOP_DISTANCE = 0.9  # meters
 LIDAR_FRONT_ANGLE_DEG = 30  # +/- degrees around center
-LIDAR_CLEAR_DISTANCE = 0.85 #must be greater than the stop distance to be clear 
+LIDAR_CLEAR_DISTANCE = 0.8 #must be greater than the stop distance to be clear 
 LIDAR_HIT_COUNT_TO_TRIGGER = 3 # consectuvie hits to trigger obstacle 
 LIDAR_CLEAR_COUNT_TO_CLEAR = 1 # consecutive clears to clear obstacle 
 
