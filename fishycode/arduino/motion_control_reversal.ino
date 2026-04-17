@@ -1,4 +1,5 @@
 #include <Servo.h>
+#include <SharpIR.h>
 
 Servo steering_servo;
 Servo drive_motor;
@@ -57,6 +58,12 @@ int   cmd_y = FRAME_HEIGHT / 2;
 float cmd_speed_factor = 0.0;
 int   cmd_obstacle = 0;
 
+// IR Sensor settings
+#define IR_PIN A1
+#define MIN_READINGS_TO_DETERMINE_OBJECT 5
+SharpIR sensor(SharpIR::GP2Y0A21YK0F, IR_PIN)
+int lastReadings[MIN_READINGS_TO_DETERMINE_OBJECT];
+
 // -------------------------
 // Helpers
 // -------------------------
@@ -77,6 +84,25 @@ void setDrivePower(int power) {
 
   drive_motor.writeMicroseconds(esc_us);
   //Serial.println(esc_us); 
+}
+
+bool rearObjectDetected() {
+  int currentDistance = sensor.getDisance();
+  bool isObject = currentDistance < 50;
+  for (int i = 0; i < MIN_READINGS_TO_DETERMINE_OBJECT; i++) {
+    if (lastReadings[i] > 50) {
+      isObject = false;
+      break;
+    }
+  }
+
+  // shift readings down one
+  for (int i = 0; i < MIN_READINGS_TO_DETERMINE_OBJECT-1; i++) {
+    lastReadings[i] = lastReadings[i+1];
+  }
+  lastReadings[MIN_READINGS_TO_DETERMINE_OBJECT-1] = currentDistance;
+
+  return isObject;
 }
 
 void steerByRow(int row) {
@@ -222,6 +248,13 @@ void setup() {
   drive_motor.writeMicroseconds(ESC_NEUTRAL);
   esc_us = ESC_NEUTRAL;
   lastCmdMs = millis(); 
+
+  // IR_SENSOR
+  for (int i = 0; i < MIN_READINGS_TO_DETERMINE_OBJECT; i++) {
+    lastReadings[i] = 100;
+  }
+  Serial.begin(19200);
+  Serial.println("SharpIR Ready")
 }
 
 void loop() {
@@ -255,6 +288,7 @@ void loop() {
     enterMode(FOLLOW);
     cmd_obstacle = 0;
     return;}
+
   // 2) Highest priority: obstacle avoidance
   if (mode == FOLLOW && cmd_obstacle == 1) {
     startAvoidance();
